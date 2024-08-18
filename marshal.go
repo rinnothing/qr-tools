@@ -172,15 +172,22 @@ func newBitsetAppender() *bitsetAppender {
 // appendByte appends n bits to the sequence of bits inside bitAppender
 // if n is greater than 8 appendByte append just 8 bits
 func (ba *bitsetAppender) appendByte(data byte, n uint) {
-	if ba.n%8 != 0 {
-		ba.data[ba.n/8] |= data >> ba.n % 8
+	if n == 0 {
+		return
 	}
-	ba.data = append(ba.data, data<<(8-ba.n%8)%8)
+
+	if ba.n%8 != 0 {
+		ba.data[ba.n/8] |= data >> (ba.n % 8)
+	}
+	if (8-ba.n%8)%8 < n {
+		ba.data = append(ba.data, data<<((8-ba.n%8)%8))
+	}
 
 	if n > 8 {
 		ba.n += 8
+	} else {
+		ba.n += n
 	}
-	ba.n += n
 }
 
 // append appends n bits to the sequence that is already in bitsetAppender
