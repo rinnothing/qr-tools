@@ -37,7 +37,7 @@ func TestBitsetAppendByte(t *testing.T) {
 	ba := newBitsetAppender()
 
 	ln := uint(0)
-	for i := uint(1); i <= 100; i++ {
+	for i := uint(0); i <= 100; i++ {
 		ba.appendByte(byte(i)<<(8-min(i, 8)), i)
 
 		prLn := ln
@@ -47,7 +47,9 @@ func TestBitsetAppendByte(t *testing.T) {
 		}
 
 		var extr byte
-		if ba.n/8 == prLn/8 {
+		if i == 0 {
+			extr = 0
+		} else if ba.n/8 == prLn/8 {
 			extr = ba.data[len(ba.data)-1] >> ((8 - ba.n%8) % 8)
 			extr &= allOnes >> (8 - (ba.n - prLn))
 		} else {
@@ -63,5 +65,4 @@ func TestBitsetAppendByte(t *testing.T) {
 			t.Errorf("Extracted bites %b aren't equal with actual bites %b, i = %d", extr, actual, i)
 		}
 	}
-
 }
