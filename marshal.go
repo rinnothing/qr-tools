@@ -2,6 +2,7 @@ package qr_tools
 
 import (
 	"errors"
+	"math"
 	"strconv"
 	"unicode"
 )
@@ -35,6 +36,8 @@ var (
 		{7, 12, 20, 28, 37, 45, 53, 66, 80, 93, 109, 125, 149, 159, 180, 198, 224, 243, 272, 297, 314, 348, 376, 407, 440, 462, 496, 534, 559, 604, 634, 684, 719, 756, 790, 832, 876, 923, 972, 1024},                // Q
 		{4, 8, 15, 21, 27, 36, 39, 52, 60, 74, 85, 96, 109, 120, 136, 154, 173, 191, 208, 235, 248, 270, 284, 315, 330, 365, 385, 405, 430, 457, 486, 518, 553, 590, 605, 647, 673, 701, 750, 784},                    // H
 	}
+
+	allOnes = byte(math.MaxUint8)
 )
 
 // ErrorCorrectionLevel is enum that
@@ -175,15 +178,18 @@ func (ba *bitsetAppender) appendByte(data byte, n uint) {
 	if n == 0 {
 		return
 	}
+	oldN := n
+	n = min(8, n)
 
 	if ba.n%8 != 0 {
 		ba.data[ba.n/8] |= data >> (ba.n % 8)
+		ba.data[ba.n/8] &= allOnes << (8 - min(ba.n%8+n, 8))
 	}
 	if (8-ba.n%8)%8 < n {
 		ba.data = append(ba.data, data<<((8-ba.n%8)%8))
 	}
 
-	if n > 8 {
+	if oldN > 8 {
 		ba.n += 8
 	} else {
 		ba.n += n
@@ -194,7 +200,13 @@ func (ba *bitsetAppender) appendByte(data byte, n uint) {
 // note that n shall not be greater than len(date) * 8, otherwise you'll get a bitBeyondError
 // but previous data would be written
 func (ba *bitsetAppender) append(data []byte, n uint) error {
-	for i := 0; n > 0; n, i = n-8, i+1 {
+	if n == 0 {
+		return nil
+	}
+
+	times := (n-1)/8 + 1
+
+	for i := 0; times > 0; times, n, i = times-1, n-8, i+1 {
 		if i >= len(data) {
 			return bitBeyondError
 		}
