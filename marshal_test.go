@@ -68,7 +68,7 @@ func TestBitsetAppendByte(t *testing.T) {
 	}
 }
 
-func TestAppendUint16(t *testing.T) {
+func TestBitsetAppendUint16(t *testing.T) {
 	ba1 := newBitsetAppender()
 	ba2 := newBitsetAppender()
 

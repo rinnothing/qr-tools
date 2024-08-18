@@ -208,10 +208,15 @@ func (ba *bitsetAppender) append(data []byte, n uint) error {
 // appendUint16 simply splits uint into 4 bytes and appends them
 // if n is greater than 16 appendUint16 appends just 16 bits
 func (ba *bitsetAppender) appendUint16(data uint16, n uint) {
+	if n == 0 {
+		return
+	}
+
 	n = min(n, 16)
+	times := (n-1)/8 + 1
 
 	m := 8
-	for ; n > 0; n, m = n-8, m-8 {
+	for ; times > 0; times, n, m = times-1, n-8, m-8 {
 		ba.appendByte(byte(data>>m), n)
 	}
 }
