@@ -3,6 +3,7 @@ package qr_tools
 import (
 	"bytes"
 	"math"
+	"math/rand"
 	"testing"
 )
 
@@ -73,15 +74,59 @@ func TestBitsetAppendUint16(t *testing.T) {
 	ba2 := newBitsetAppender()
 
 	for i, num := 0, uint16(math.MaxUint8+1); i < 100; i, num = i+1, num+1 {
-		bits := uint(i % 25)
+		bits := i % 25
 
-		ba1.appendUint16(num, bits)
+		ba1.appendUint16(num, uint(bits))
 
-		ba2.appendByte(byte(num>>8), min(bits, 8))
-		ba2.appendByte(byte(num), max(bits, 8)-8)
+		ba2.appendByte(byte(num>>8), uint(min(bits, 8)))
+		ba2.appendByte(byte(num), uint(max(bits-8, 0)))
 
-		if !bytes.Equal(ba1.data, ba2.data) {
+		if ba1.n != ba2.n || !bytes.Equal(ba1.data, ba2.data) {
 			t.Errorf("Arrays aren't equal after adding %d bits from %d", bits, i)
 		}
+	}
+}
+
+func TestBitsetAppend(t *testing.T) {
+	ba1 := newBitsetAppender()
+	ba2 := newBitsetAppender()
+
+	data := make([]byte, 0, 12)
+	for i := 0; i < 12; i += 4 {
+		r := rand.Uint32()
+		data = append(data, byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
+	}
+
+	for i := 0; i <= 12*8+100; i++ {
+		err := ba1.append(data, uint(i))
+		if err != nil && i <= 12*8 {
+			t.Errorf("Got sudden error after adding %d bits", i)
+		} else if err == nil && i > 12*8 {
+			t.Errorf("Didn't get error after adding %d bits", i)
+		}
+
+		for j, y := min(i, 12*8), 0; j > 0; j, y = j-8, y+1 {
+			ba2.appendByte(data[y], uint(min(j, 8)))
+		}
+
+		if ba1.n != ba2.n || ba1.n > 0 && !bytes.Equal(ba1.data, ba2.data) {
+			t.Errorf("Arrays aren't equal after adding %d bits", i)
+		}
+	}
+}
+
+func TestBitsetGetData(t *testing.T) {
+	ba := newBitsetAppender()
+	data := make([]byte, 0, 12)
+	for i := 0; i < 12; i += 4 {
+		r := rand.Uint32()
+		data = append(data, byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
+	}
+
+	bits := uint(12*5 + 6)
+
+	_ = ba.append(data, bits)
+	if ba.n != bits || !bytes.Equal(ba.data, data[:(bits-1)/8+1]) {
+		t.Errorf("getData's value and data aren't equal")
 	}
 }
