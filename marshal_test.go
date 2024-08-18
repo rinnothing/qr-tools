@@ -1,6 +1,7 @@
 package qr_tools
 
 import (
+	"bytes"
 	"math"
 	"testing"
 )
@@ -63,6 +64,24 @@ func TestBitsetAppendByte(t *testing.T) {
 		actual := byte(i) & (allOnes >> (8 - min(i, 8)))
 		if extr != actual {
 			t.Errorf("Extracted bites %b aren't equal with actual bites %b, i = %d", extr, actual, i)
+		}
+	}
+}
+
+func TestAppendUint16(t *testing.T) {
+	ba1 := newBitsetAppender()
+	ba2 := newBitsetAppender()
+
+	for i, num := 0, uint16(math.MaxUint8+1); i < 100; i, num = i+1, num+1 {
+		bits := uint(i % 25)
+
+		ba1.appendUint16(num, bits)
+
+		ba2.appendByte(byte(num>>8), min(bits, 8))
+		ba2.appendByte(byte(num), max(bits, 8)-8)
+
+		if !bytes.Equal(ba1.data, ba2.data) {
+			t.Errorf("Arrays aren't equal after adding %d bits from %d", bits, i)
 		}
 	}
 }
