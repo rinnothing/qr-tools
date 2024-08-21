@@ -7,6 +7,11 @@ import (
 	"unicode"
 )
 
+const (
+	// just ones for making bit masks
+	allOnes = byte(math.MaxUint8)
+)
+
 var (
 	bitBeyondError   = errors.New("bit number goes beyond number of bytes")
 	wrongFormatError = errors.New("content format is not suitable for marshaler")
@@ -37,7 +42,8 @@ var (
 		{4, 8, 15, 21, 27, 36, 39, 52, 60, 74, 85, 96, 109, 120, 136, 154, 173, 191, 208, 235, 248, 270, 284, 315, 330, 365, 385, 405, 430, 457, 486, 518, 553, 590, 605, 647, 673, 701, 750, 784},                    // H
 	}
 
-	allOnes = byte(math.MaxUint8)
+	//additional alphanumeric chars which codes are too strange to make ifs for them
+	excessAlphanumerics = map[int32]int{' ': 36, '$': 37, '%': 38, '*': 39, '+': 40, '-': 41, '.': 42, '/': 43, ':': 44}
 )
 
 // ErrorCorrectionLevel is enum that
@@ -68,7 +74,7 @@ type NumericMarshaler struct {
 	ver QRVersion
 }
 
-// NewNumericMarshaler returns NumericMarshaller
+// NewNumericMarshaler returns NumericMarshaler
 // with chosen ErrorCorrectionLevel
 func NewNumericMarshaler(lvl ErrorCorrectionLevel, ver QRVersion) *NumericMarshaler {
 	return &NumericMarshaler{lvl: lvl, ver: ver}
@@ -132,6 +138,86 @@ func (nm *NumericMarshaler) MarshalString(str string) ([]byte, error) {
 
 	// padding information
 	bitsNum := numericCapacities[nm.lvl][nm.ver] * 8
+	addPadding(ba, bitsNum)
+
+	return ba.getData(), nil
+}
+
+// An AlphanumericMarshaler can marshal alphanumeric data (0-9, A-Z,' ', S$, %, *, +, -, ., /, :)
+// with respect to ErrorCorrectionLevel
+type AlphanumericMarshaler struct {
+	lvl ErrorCorrectionLevel
+	ver QRVersion
+}
+
+// NewAlphanumericMarshaler returns AlphanumericMarshaller
+// with chosen ErrorCorrectionLevel
+func NewAlphanumericMarshaler(lvl ErrorCorrectionLevel, ver QRVersion) *AlphanumericMarshaler {
+	return &AlphanumericMarshaler{lvl: lvl, ver: ver}
+}
+
+// returns the char equivalent in alphanumeric encoding (or -1 in case char isn't alphanumeric)
+func getAlphanumericNumber(ch int32) int {
+	if ch >= '0' && ch <= '9' {
+		return int(ch - '0')
+	} else if ch >= 'A' && ch <= 'Z' {
+		return int(ch - 'A' + 10)
+	} else if n, is := excessAlphanumerics[ch]; is {
+		return n
+	}
+
+	return -1
+}
+
+func isAlphaNumeric(str string) bool {
+	for _, ch := range str {
+		if getAlphanumericNumber(ch) == -1 {
+			return false
+		}
+	}
+
+	return true
+}
+
+// MarshalString marshals the given alphanumeric string
+func (am *AlphanumericMarshaler) MarshalString(str string) ([]byte, error) {
+	if !isAlphaNumeric(str) {
+		return nil, wrongFormatError
+	}
+
+	ba := newBitsetAppender()
+
+	//adding mode indicator - alphanumeric
+	ba.appendByte(0b00100000, 4)
+	//adding size indicator
+	{
+		var cntSize uint
+		switch {
+		case am.ver >= 1 && am.ver <= 9:
+			cntSize = 9
+		case am.ver >= 10 && am.ver <= 26:
+			cntSize = 11
+		case am.ver >= 27 && am.ver <= 40:
+			cntSize = 13
+		}
+		ba.appendUint16(uint16(len(str)<<(16-cntSize)), cntSize)
+	}
+
+	//splitting string in duos and encoding
+	i := 0
+	for ; i+2 <= len(str); i += 2 {
+		nm := uint16(getAlphanumericNumber(int32(str[i]))*45 + getAlphanumericNumber(int32(str[i+1])))
+
+		ba.appendUint16(nm<<5, 11)
+	}
+	if i == len(str)-1 {
+		nm := uint16(getAlphanumericNumber(int32(str[i])))
+
+		ba.appendUint16(nm<<10, 6)
+	}
+
+	//applying padding
+	bitsNum := alphanumericCapacities[am.lvl][am.ver] * 8
 	addPadding(ba, bitsNum)
 
 	return ba.getData(), nil
