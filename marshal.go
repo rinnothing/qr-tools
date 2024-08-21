@@ -13,8 +13,9 @@ const (
 )
 
 var (
-	bitBeyondError   = errors.New("bit number goes beyond number of bytes")
-	wrongFormatError = errors.New("content format is not suitable for marshaler")
+	bitBeyondError      = errors.New("bit number goes beyond number of bytes")
+	wrongFormatError    = errors.New("content format is not suitable for marshaler")
+	wrongQRVersionError = errors.New("wrong qr version")
 
 	// just some magic numbers, hope later I'll calculate them by myself (taken from https://www.thonky.com/qr-code-tutorial/character-capacities)
 	numericCapacities = [][]uint{
@@ -120,6 +121,8 @@ func (nm *NumericMarshaler) MarshalString(str string) ([]byte, error) {
 			cntSize = 12
 		case nm.ver >= 27 && nm.ver <= 40:
 			cntSize = 14
+		default:
+			return nil, wrongQRVersionError
 		}
 		ba.appendUint16(uint16(len(str))<<(16-cntSize), cntSize)
 	}
@@ -199,6 +202,8 @@ func (am *AlphanumericMarshaler) MarshalString(str string) ([]byte, error) {
 			cntSize = 11
 		case am.ver >= 27 && am.ver <= 40:
 			cntSize = 13
+		default:
+			return nil, wrongQRVersionError
 		}
 		ba.appendUint16(uint16(len(str)<<(16-cntSize)), cntSize)
 	}
@@ -223,6 +228,51 @@ func (am *AlphanumericMarshaler) MarshalString(str string) ([]byte, error) {
 	return ba.getData(), nil
 }
 
+// A ByteMarshaler can marshal byte data
+// with respect to ErrorCorrectionLevel
+type ByteMarshaler struct {
+	lvl ErrorCorrectionLevel
+	ver QRVersion
+}
+
+// NewByteMarshaler returns ByteMarshaler
+// with chosen ErrorCorrectionLevel
+func NewByteMarshaler(lvl ErrorCorrectionLevel, ver QRVersion) *ByteMarshaler {
+	return &ByteMarshaler{lvl: lvl, ver: ver}
+}
+
+// MarshalString marshals the given byte string
+func (bm *ByteMarshaler) MarshalString(str string) ([]byte, error) {
+	ba := newBitsetAppender()
+
+	//adding mode indicator - byte
+	ba.appendByte(0b01000000, 4)
+	//adding size indicator
+	{
+		var cntSize uint
+		switch {
+		case bm.ver >= 1 && bm.ver <= 0:
+			cntSize = 8
+		case bm.ver >= 10 && bm.ver <= 40:
+			cntSize = 16
+		default:
+			return nil, wrongQRVersionError
+		}
+		ba.appendUint16(uint16(len(str)<<(16-cntSize)), cntSize)
+	}
+
+	//just past data (no way there would be an error)
+	_ = ba.append([]byte(str), uint(len(str)*8))
+
+	//padding information
+	bitsNum := byteCapacities[bm.lvl][bm.ver] * 8
+	addPadding(ba, bitsNum)
+
+	return ba.getData(), nil
+}
+
+//will add kanji later
+
 // addPadding adds padding after placing information
 // used in some marshalers
 func addPadding(ba *bitsetAppender, bitsNum uint) {
@@ -236,6 +286,39 @@ func addPadding(ba *bitsetAppender, bitsNum uint) {
 	for ba.n < bitsNum {
 		ba.appendUint16(0b11101100_00010001, min(16, bitsNum-ba.n))
 	}
+}
+
+// A QRMarshaler can marshal numeric, alphanumeric, byte and kanji (later) effectively
+// with respect to ErrorCor
+type QRMarshaler struct {
+	lvl ErrorCorrectionLevel
+	ver QRVersion
+}
+
+// NewQRMarshaler returns QRMarshaler
+// with chosen ErrorCorrectionLevel
+func NewQRMarshaler(lvl ErrorCorrectionLevel, ver QRVersion) *QRMarshaler {
+	return &QRMarshaler{lvl: lvl, ver: ver}
+}
+
+// MarshalString marshals the given string effectively
+func (qm *QRMarshaler) MarshalString(str string) ([]byte, error) {
+	var mller Marshaler = NewNumericMarshaler(qm.lvl, qm.ver)
+	if data, err := mller.MarshalString(str); err == nil {
+		return data, nil
+	}
+
+	mller = NewAlphanumericMarshaler(qm.lvl, qm.ver)
+	if data, err := mller.MarshalString(str); err == nil {
+		return data, nil
+	}
+
+	mller = NewByteMarshaler(qm.lvl, qm.ver)
+	if data, err := mller.MarshalString(str); err == nil {
+		return data, nil
+	}
+
+	return nil, wrongFormatError
 }
 
 // Unmarshaler is the interface implemented by types that
