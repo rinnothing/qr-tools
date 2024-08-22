@@ -163,3 +163,65 @@ func TestIsNumeric(t *testing.T) {
 		}
 	}
 }
+
+func TestGetAlphaNumericNumber(t *testing.T) {
+	anSymbols := make(map[int32]int)
+	for ch := '0'; ch <= '9'; ch++ {
+		anSymbols[ch] = int(ch - '0')
+	}
+	for ch := 'A'; ch <= 'Z'; ch++ {
+		anSymbols[ch] = int(ch-'A') + 10
+	}
+	for ch, val := range excessAlphanumerics {
+		anSymbols[ch] = val
+	}
+
+	for i := int32(0); i < 256; i++ {
+		correct, exists := anSymbols[i]
+		answer := getAlphanumericNumber(i)
+		if !((!exists && answer == -1) || (correct == answer)) {
+			t.Errorf("Get alphanumeric number %c answered %d instead of %c", i, answer, anSymbols[i])
+		}
+	}
+}
+
+func TestIsAlphaNumeric(t *testing.T) {
+	symbols := make([]int32, 0, 45)
+	for ch := '0'; ch <= '9'; ch++ {
+		symbols = append(symbols, ch)
+	}
+	for ch := 'A'; ch <= 'Z'; ch++ {
+		symbols = append(symbols, ch)
+	}
+	for ch := range excessAlphanumerics {
+		symbols = append(symbols, ch)
+	}
+
+	{
+		var arr [100]int32
+		for l := 1; l < 100; l++ {
+			for i := 0; i < l; i++ {
+				arr[i] = symbols[rand.Intn(len(symbols))]
+			}
+
+			s := string(arr[:l])
+			if !isAlphaNumeric(s) {
+				t.Errorf("Alphanumeric string %s is not recognized as one", s)
+			}
+		}
+	}
+
+	{
+		var arr [100]byte
+		for l := 1; l < 100; l++ {
+			if _, err := cryptoRand.Read(arr[:l-1]); err != nil {
+				t.Fatalf("Some strange error %s", err.Error())
+			}
+
+			s := string(arr[:l])
+			if isAlphaNumeric(s) {
+				t.Errorf("Non alphanumeric string %s is recognized as one", s)
+			}
+		}
+	}
+}
