@@ -98,7 +98,7 @@ func clearLeadingZeroes(str string) string {
 		}
 	}
 
-	return str[i : len(str)-1]
+	return str[i:]
 }
 
 // MarshalString marshals the given numeric string
