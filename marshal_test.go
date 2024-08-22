@@ -225,3 +225,21 @@ func TestIsAlphaNumeric(t *testing.T) {
 		}
 	}
 }
+
+func TestClearLeadingZeroes(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		sb := strings.Builder{}
+		for j := 0; j < i; j++ {
+			sb.WriteByte('0')
+		}
+
+		s := strconv.Itoa(rand.Int())
+		sb.WriteString(s)
+
+		sWithZeroes := sb.String()
+		sWithoutZeroes := clearLeadingZeroes(sWithZeroes)
+		if sWithoutZeroes != s {
+			t.Errorf("Wrongly cleared leading zeroes in string %s, %s should be equal %s", sWithZeroes, sWithoutZeroes, s)
+		}
+	}
+}
