@@ -140,7 +140,7 @@ func (nm *NumericMarshaler) MarshalString(str string) ([]byte, error) {
 	}
 
 	// padding information
-	bitsNum := numericCapacities[nm.lvl][nm.ver] * 8
+	bitsNum := numericCapacities[nm.lvl][nm.ver-1] * 8
 	addPadding(ba, bitsNum)
 
 	return ba.getData(), nil
@@ -222,7 +222,7 @@ func (am *AlphanumericMarshaler) MarshalString(str string) ([]byte, error) {
 	}
 
 	//applying padding
-	bitsNum := alphanumericCapacities[am.lvl][am.ver] * 8
+	bitsNum := alphanumericCapacities[am.lvl][am.ver-1] * 8
 	addPadding(ba, bitsNum)
 
 	return ba.getData(), nil
@@ -265,7 +265,7 @@ func (bm *ByteMarshaler) MarshalString(str string) ([]byte, error) {
 	_ = ba.append([]byte(str), uint(len(str)*8))
 
 	//padding information
-	bitsNum := byteCapacities[bm.lvl][bm.ver] * 8
+	bitsNum := byteCapacities[bm.lvl][bm.ver-1] * 8
 	addPadding(ba, bitsNum)
 
 	return ba.getData(), nil
