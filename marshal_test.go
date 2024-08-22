@@ -3,7 +3,9 @@ package qr_tools
 import (
 	"bytes"
 	"math"
-	"math/rand"
+	"math/rand/v2"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -128,5 +130,35 @@ func TestBitsetGetData(t *testing.T) {
 	_ = ba.append(data, bits)
 	if ba.n != bits || !bytes.Equal(ba.getData(), data[:(bits-1)/8+1]) {
 		t.Errorf("getData's value and data aren't equal")
+	}
+}
+
+func TestIsNumeric(t *testing.T) {
+	for l := 1; l < 100; l++ {
+		sb := strings.Builder{}
+		var w string
+		for w = strconv.Itoa(int(rand.Uint32())); sb.Len()+len(w) <= l; {
+			sb.WriteString(w)
+		}
+		sb.WriteString(w[:l-sb.Len()])
+
+		s := sb.String()
+		if !isNumeric(s) {
+			t.Errorf("Numeric string %sb is not recognized as one", s)
+		}
+	}
+
+	chacha8seed := [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
+	r := rand.NewChaCha8(chacha8seed)
+
+	var arr [100]byte
+	for l := 1; l < 100; l++ {
+		_, _ = r.Read(arr[:l-1])
+		arr[l] = 'W'
+
+		s := string(arr[:l])
+		if isNumeric(s) {
+			t.Errorf("Not numeric string %s is recognized as one", s)
+		}
 	}
 }
