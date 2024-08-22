@@ -2,8 +2,9 @@ package qr_tools
 
 import (
 	"bytes"
+	cryptoRand "crypto/rand"
 	"math"
-	"math/rand/v2"
+	"math/rand"
 	"strconv"
 	"strings"
 	"testing"
@@ -148,12 +149,12 @@ func TestIsNumeric(t *testing.T) {
 		}
 	}
 
-	chacha8seed := [32]byte([]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"))
-	r := rand.NewChaCha8(chacha8seed)
-
 	var arr [100]byte
 	for l := 1; l < 100; l++ {
-		_, _ = r.Read(arr[:l-1])
+		_, err := cryptoRand.Read(arr[:l-1])
+		if err != nil {
+			t.Fatalf("Some strange error %s", err.Error())
+		}
 		arr[l] = 'W'
 
 		s := string(arr[:l])
