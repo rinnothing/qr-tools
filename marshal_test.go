@@ -243,3 +243,60 @@ func TestClearLeadingZeroes(t *testing.T) {
 		}
 	}
 }
+
+func TestNewNumericMarshaler(t *testing.T) {
+	var lvl ErrorCorrectionLevel = H
+	var ver QRVersion = 10
+
+	nm := NewNumericMarshaler(lvl, ver)
+	if nm.lvl != lvl || ver != nm.ver {
+		t.Errorf("NewNumericMarshallers arguments are wrong")
+	}
+}
+
+func TestNumericMarshalLength(t *testing.T) {
+	for lvl := QRVersion(0); lvl < 100; lvl++ {
+		s := "12345"
+
+		nm := NewNumericMarshaler(L, lvl)
+		dataM, err := nm.MarshalString(s)
+
+		ba := newBitsetAppender()
+		ba.appendByte(0b0001<<4, 4)
+
+		var bitsNum uint
+		switch {
+		case lvl >= 1 && lvl <= 9:
+			bitsNum = 10
+		case lvl >= 10 && lvl <= 26:
+			bitsNum = 12
+		case lvl >= 27 && lvl <= 40:
+			bitsNum = 14
+		default:
+			if err == nil {
+				t.Errorf("Lvl %d should give an error", lvl)
+			}
+			continue
+		}
+		ba.appendUint16(uint16(len(s))<<(16-bitsNum), bitsNum)
+
+		dataA := ba.getData()
+
+		for i := 0; i < len(dataA)-1; i++ {
+			if dataA[i] != dataM[i] {
+				t.Errorf("Byte %d doesn't match: %d != %d", i, dataA[i], dataM[i+1])
+			}
+		}
+
+		lastByteBits := ba.n % 8
+		if lastByteBits == 0 {
+			lastByteBits = 8
+		}
+		lastByteM := dataM[len(dataA)-1] & (allOnes << (8 - lastByteBits))
+		lastByteA := dataA[len(dataA)-1] & (allOnes << (8 - lastByteBits))
+		if lastByteA != lastByteM {
+			t.Errorf("Last byte doesn't match: %d != %d", lastByteA, lastByteM)
+		}
+	}
+
+}
