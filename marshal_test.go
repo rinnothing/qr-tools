@@ -126,7 +126,7 @@ func TestBitsetGetData(t *testing.T) {
 	bits := uint(12*5 + 6)
 
 	_ = ba.append(data, bits)
-	if ba.n != bits || !bytes.Equal(ba.data, data[:(bits-1)/8+1]) {
+	if ba.n != bits || !bytes.Equal(ba.getData(), data[:(bits-1)/8+1]) {
 		t.Errorf("getData's value and data aren't equal")
 	}
 }
