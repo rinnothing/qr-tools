@@ -49,6 +49,10 @@ var (
 		{9, 16, 26, 36, 46, 60, 66, 86, 100, 122, 140, 158, 180, 197, 223, 253, 283, 313, 341, 385, 406, 442, 464, 514, 538, 596, 628, 661, 701, 745, 793, 845, 901, 961, 986, 1054, 1096, 1142, 1222, 1276},                    //H
 	}
 
+	numericBitCounts      = [3]uint{10, 12, 14}
+	alphanumericBitCounts = [3]uint{9, 11, 13}
+	byteBitCounts         = [3]uint{8, 16, 16}
+
 	//additional alphanumeric chars which codes are too strange to make ifs for them
 	excessAlphanumerics = map[int32]int{' ': 36, '$': 37, '%': 38, '*': 39, '+': 40, '-': 41, '.': 42, '/': 43, ':': 44}
 )
@@ -118,7 +122,7 @@ func (nm *NumericMarshaler) MarshalString(str string) ([]byte, error) {
 	//adding mode indicator - numeric
 	ba.appendByte(0b00010000, 4)
 	//adding size indicator
-	if err := addCharacterCount([3]uint{10, 12, 14}, ba, nm.ver, len(str)); err != nil {
+	if err := addCharacterCount(numericBitCounts, ba, nm.ver, len(str)); err != nil {
 		return nil, err
 	}
 
@@ -188,7 +192,7 @@ func (am *AlphanumericMarshaler) MarshalString(str string) ([]byte, error) {
 	//adding mode indicator - alphanumeric
 	ba.appendByte(0b00100000, 4)
 	//adding size indicator
-	if err := addCharacterCount([3]uint{9, 11, 13}, ba, am.ver, len(str)); err != nil {
+	if err := addCharacterCount(alphanumericBitCounts, ba, am.ver, len(str)); err != nil {
 		return nil, err
 	}
 
@@ -232,7 +236,7 @@ func (bm *ByteMarshaler) MarshalString(str string) ([]byte, error) {
 	//adding mode indicator - byte
 	ba.appendByte(0b01000000, 4)
 	//adding size indicator
-	if err := addCharacterCount([3]uint{8, 16, 16}, ba, bm.ver, len(str)); err != nil {
+	if err := addCharacterCount(byteBitCounts, ba, bm.ver, len(str)); err != nil {
 		return nil, err
 	}
 
