@@ -3,6 +3,7 @@ package qr_tools
 import (
 	"bytes"
 	cryptoRand "crypto/rand"
+	"errors"
 	"math"
 	"math/rand"
 	"strconv"
@@ -245,63 +246,6 @@ func TestClearLeadingZeroes(t *testing.T) {
 	}
 }
 
-func TestNewNumericMarshaler(t *testing.T) {
-	var lvl ErrorCorrectionLevel = H
-	var ver QRVersion = 10
-
-	nm := NewNumericMarshaler(lvl, ver)
-	if nm.lvl != lvl || ver != nm.ver {
-		t.Errorf("NewNumericMarshallers arguments are wrong")
-	}
-}
-
-func TestNumericMarshalLength(t *testing.T) {
-	for lvl := QRVersion(0); lvl < 100; lvl++ {
-		s := "12345"
-
-		nm := NewNumericMarshaler(L, lvl)
-		dataM, err := nm.MarshalString(s)
-
-		ba := newBitsetAppender()
-		ba.appendByte(0b0001<<4, 4)
-
-		var bitsNum uint
-		switch {
-		case lvl >= 1 && lvl <= 9:
-			bitsNum = 10
-		case lvl >= 10 && lvl <= 26:
-			bitsNum = 12
-		case lvl >= 27 && lvl <= 40:
-			bitsNum = 14
-		default:
-			if err == nil {
-				t.Errorf("Lvl %d should give an error", lvl)
-			}
-			continue
-		}
-		ba.appendUint16(uint16(len(s))<<(16-bitsNum), bitsNum)
-
-		dataA := ba.getData()
-
-		for i := 0; i < len(dataA)-1; i++ {
-			if dataA[i] != dataM[i] {
-				t.Errorf("Byte %d doesn't match: %d != %d", i, dataA[i], dataM[i+1])
-			}
-		}
-
-		lastByteBits := ba.n % 8
-		if lastByteBits == 0 {
-			lastByteBits = 8
-		}
-		lastByteM := dataM[len(dataA)-1] & (allOnes << (8 - lastByteBits))
-		lastByteA := dataA[len(dataA)-1] & (allOnes << (8 - lastByteBits))
-		if lastByteA != lastByteM {
-			t.Errorf("Last byte doesn't match: %d != %d", lastByteA, lastByteM)
-		}
-	}
-
-}
-
 func TestAddCharacterCount(t *testing.T) {
 	for lvl := QRVersion(0); lvl < 100; lvl++ {
 		chCnt := rand.Int() % 100
@@ -391,6 +335,58 @@ func TestAddPadding(t *testing.T) {
 
 		if !bytes.Equal(ba.data, baCopy.data) {
 			t.Errorf("Incorrect padding: %x != %x", ba.data, baCopy.data)
+		}
+	}
+}
+
+func TestNewNumericMarshaler(t *testing.T) {
+	var lvl ErrorCorrectionLevel = H
+	var ver QRVersion = 10
+
+	nm := NewNumericMarshaler(lvl, ver)
+	if nm.lvl != lvl || ver != nm.ver {
+		t.Errorf("NewNumericMarshallers arguments are wrong")
+	}
+}
+
+func TestNumericMarshaler_MarshalString(t *testing.T) {
+	{
+		s := "abcde"
+		nm := NewNumericMarshaler(L, 1)
+		if _, err := nm.MarshalString(s); !errors.Is(err, wrongFormatError) {
+			t.Errorf("%s is not numeric, but error doesn't appear", s)
+		}
+	}
+
+	lvl := ErrorCorrectionLevel(L)
+	for _, ver := range []QRVersion{1, 45} {
+		s := "8675309"
+		nm := NewNumericMarshaler(lvl, ver)
+		data, err := nm.MarshalString(s)
+		if err != nil {
+			if ver <= 40 && ver >= 1 {
+				t.Errorf("Level is %d, but error doesn't aris", ver)
+			}
+			continue
+		}
+
+		var sMarshaled []byte
+		{
+			ba := newBitsetAppender()
+			ba.appendByte(0b0001<<4, 4)
+			_ = addCharacterCount(numericBitCounts, ba, ver, len(s))
+			ba.appendUint16(0b1101100011<<6, 10)
+			ba.appendUint16(0b1000010010<<6, 10)
+			ba.appendUint16(0b1001<<12, 4)
+			addPadding(ba, codewordsCapacities[lvl][ver-1]*8)
+
+			sMarshaled = ba.getData()
+		}
+
+		if !bytes.Equal(data, sMarshaled) {
+			t.Errorf("Data isn't marshaled properly")
+			t.Log(sMarshaled)
+			t.Log(data)
 		}
 	}
 }
