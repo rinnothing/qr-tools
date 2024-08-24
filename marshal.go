@@ -112,19 +112,8 @@ func (nm *NumericMarshaler) MarshalString(str string) ([]byte, error) {
 	//adding mode indicator - numeric
 	ba.appendByte(0b00010000, 4)
 	//adding size indicator
-	{
-		var cntSize uint
-		switch {
-		case nm.ver >= 1 && nm.ver <= 9:
-			cntSize = 10
-		case nm.ver >= 10 && nm.ver <= 26:
-			cntSize = 12
-		case nm.ver >= 27 && nm.ver <= 40:
-			cntSize = 14
-		default:
-			return nil, wrongQRVersionError
-		}
-		ba.appendUint16(uint16(len(str))<<(16-cntSize), cntSize)
+	if err := addCharacterCount([3]uint{10, 12, 14}, ba, nm.ver, len(str)); err != nil {
+		return nil, err
 	}
 
 	// splitting digits into triplets and cutting away leading zeroes
@@ -193,19 +182,8 @@ func (am *AlphanumericMarshaler) MarshalString(str string) ([]byte, error) {
 	//adding mode indicator - alphanumeric
 	ba.appendByte(0b00100000, 4)
 	//adding size indicator
-	{
-		var cntSize uint
-		switch {
-		case am.ver >= 1 && am.ver <= 9:
-			cntSize = 9
-		case am.ver >= 10 && am.ver <= 26:
-			cntSize = 11
-		case am.ver >= 27 && am.ver <= 40:
-			cntSize = 13
-		default:
-			return nil, wrongQRVersionError
-		}
-		ba.appendUint16(uint16(len(str)<<(16-cntSize)), cntSize)
+	if err := addCharacterCount([3]uint{9, 11, 13}, ba, am.ver, len(str)); err != nil {
+		return nil, err
 	}
 
 	//splitting string in duos and encoding
@@ -248,17 +226,8 @@ func (bm *ByteMarshaler) MarshalString(str string) ([]byte, error) {
 	//adding mode indicator - byte
 	ba.appendByte(0b01000000, 4)
 	//adding size indicator
-	{
-		var cntSize uint
-		switch {
-		case bm.ver >= 1 && bm.ver <= 0:
-			cntSize = 8
-		case bm.ver >= 10 && bm.ver <= 40:
-			cntSize = 16
-		default:
-			return nil, wrongQRVersionError
-		}
-		ba.appendUint16(uint16(len(str)<<(16-cntSize)), cntSize)
+	if err := addCharacterCount([3]uint{8, 16, 16}, ba, bm.ver, len(str)); err != nil {
+		return nil, err
 	}
 
 	//just past data (no way there would be an error)
@@ -272,6 +241,25 @@ func (bm *ByteMarshaler) MarshalString(str string) ([]byte, error) {
 }
 
 //will add kanji later
+
+// addCharacterCount appends character count indicator to string
+// throws wrongQRVersionError
+func addCharacterCount(bitCounts [3]uint, ba *bitsetAppender, ver QRVersion, chCnt int) error {
+	var cntSize uint
+	switch {
+	case ver >= 1 && ver <= 9:
+		cntSize = bitCounts[0]
+	case ver >= 10 && ver <= 26:
+		cntSize = bitCounts[1]
+	case ver >= 27 && ver <= 40:
+		cntSize = bitCounts[2]
+	default:
+		return wrongQRVersionError
+	}
+
+	ba.appendUint16(uint16(chCnt<<(16-cntSize)), cntSize)
+	return nil
+}
 
 // addPadding adds padding after placing information
 // used in some marshalers
