@@ -27,6 +27,7 @@ func TestCapacities(t *testing.T) {
 	testCapacity(t, alphanumericCapacities, "alphanumeric")
 	testCapacity(t, byteCapacities, "byte")
 	testCapacity(t, kanjiCapacities, "kanji")
+	testCapacity(t, codewordsCapacities, "codewords")
 }
 
 func TestNewBitsetAppender(t *testing.T) {
@@ -346,4 +347,50 @@ func TestAddCharacterCount(t *testing.T) {
 		}
 	}
 
+}
+
+func TestAddPadding(t *testing.T) {
+	data := make([]byte, 100)
+	if _, err := cryptoRand.Read(data[:]); err != nil {
+		t.Errorf("Failed to generate random data %v", err)
+	}
+
+	const l = 104
+	for num := uint(1); num < l; num++ {
+		ba := newBitsetAppender()
+		_ = ba.append(data, num)
+
+		addPadding(ba, l)
+
+		if ba.n != l {
+			t.Errorf("Not all space is filled")
+		}
+
+		baCopy := newBitsetAppender()
+		_ = baCopy.append(data, num)
+
+		if baCopy.n < l-4 {
+			baCopy.appendByte(0, 4)
+		} else {
+			baCopy.appendByte(0, l-baCopy.n)
+		}
+
+		for baCopy.n%8 != 0 {
+			baCopy.appendByte(0, 1)
+		}
+
+		flag := true
+		for baCopy.n < l {
+			if flag {
+				baCopy.appendByte(236, 8)
+			} else {
+				baCopy.appendByte(17, 8)
+			}
+			flag = !flag
+		}
+
+		if !bytes.Equal(ba.data, baCopy.data) {
+			t.Errorf("Incorrect padding: %x != %x", ba.data, baCopy.data)
+		}
+	}
 }
