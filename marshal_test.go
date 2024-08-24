@@ -300,3 +300,50 @@ func TestNumericMarshalLength(t *testing.T) {
 	}
 
 }
+
+func TestAddCharacterCount(t *testing.T) {
+	for lvl := QRVersion(0); lvl < 100; lvl++ {
+		chCnt := rand.Int() % 100
+
+		chCntBa := newBitsetAppender()
+		err := addCharacterCount([3]uint{10, 12, 14}, chCntBa, lvl, chCnt)
+
+		ba := newBitsetAppender()
+
+		var bitsNum uint
+		switch {
+		case lvl >= 1 && lvl <= 9:
+			bitsNum = 10
+		case lvl >= 10 && lvl <= 26:
+			bitsNum = 12
+		case lvl >= 27 && lvl <= 40:
+			bitsNum = 14
+		default:
+			if err == nil {
+				t.Errorf("Lvl %d should give an error", lvl)
+			}
+			continue
+		}
+		ba.appendUint16(uint16(chCnt)<<(16-bitsNum), bitsNum)
+
+		dataA := ba.getData()
+		dataM := chCntBa.getData()
+
+		for i := 0; i < len(dataA)-1; i++ {
+			if dataA[i] != dataM[i] {
+				t.Errorf("Byte %d doesn't match: %d != %d", i, dataA[i], dataM[i+1])
+			}
+		}
+
+		lastByteBits := ba.n % 8
+		if lastByteBits == 0 {
+			lastByteBits = 8
+		}
+		lastByteM := dataM[len(dataA)-1] & (allOnes << (8 - lastByteBits))
+		lastByteA := dataA[len(dataA)-1] & (allOnes << (8 - lastByteBits))
+		if lastByteA != lastByteM {
+			t.Errorf("Last byte doesn't match: %d != %d", lastByteA, lastByteM)
+		}
+	}
+
+}
