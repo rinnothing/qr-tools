@@ -446,3 +446,48 @@ func TestAlphanumericMarshaler_MarshalString(t *testing.T) {
 		}
 	}
 }
+
+func TestNewByteMarshaler(t *testing.T) {
+	var lvl ErrorCorrectionLevel = H
+	var ver QRVersion = 10
+
+	nm := NewByteMarshaler(lvl, ver)
+	if nm.lvl != lvl || ver != nm.ver {
+		t.Errorf("NewByteMarshaller's arguments are wrong")
+	}
+}
+
+func TestByteMarshaler_MarshalString(t *testing.T) {
+	lvl := ErrorCorrectionLevel(L)
+	for _, ver := range []QRVersion{1, 45} {
+		s := "Hello, world!"
+		nm := NewByteMarshaler(lvl, ver)
+		data, err := nm.MarshalString(s)
+		if err != nil {
+			if ver <= 40 && ver >= 1 {
+				t.Errorf("Level is %d, but error arises", ver)
+				t.Log(err)
+			}
+			continue
+		}
+
+		var sMarshaled []byte
+		{
+			ba := newBitsetAppender()
+			ba.appendByte(0b0100<<4, 4)
+			_ = addCharacterCount(byteBitCounts, ba, ver, len(s))
+			for _, ch := range s {
+				ba.appendByte(byte(ch), 8)
+			}
+			addPadding(ba, codewordsCapacities[lvl][ver-1]*8)
+
+			sMarshaled = ba.getData()
+		}
+
+		if !bytes.Equal(data, sMarshaled) {
+			t.Errorf("Data isn't marshaled properly")
+			t.Log(sMarshaled)
+			t.Log(data)
+		}
+	}
+}
