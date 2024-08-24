@@ -345,7 +345,7 @@ func TestNewNumericMarshaler(t *testing.T) {
 
 	nm := NewNumericMarshaler(lvl, ver)
 	if nm.lvl != lvl || ver != nm.ver {
-		t.Errorf("NewNumericMarshallers arguments are wrong")
+		t.Errorf("NewNumericMarshaller's arguments are wrong")
 	}
 }
 
@@ -365,7 +365,7 @@ func TestNumericMarshaler_MarshalString(t *testing.T) {
 		data, err := nm.MarshalString(s)
 		if err != nil {
 			if ver <= 40 && ver >= 1 {
-				t.Errorf("Level is %d, but error doesn't aris", ver)
+				t.Errorf("Level is %d, but error arises", ver)
 			}
 			continue
 		}
@@ -378,6 +378,62 @@ func TestNumericMarshaler_MarshalString(t *testing.T) {
 			ba.appendUint16(0b1101100011<<6, 10)
 			ba.appendUint16(0b1000010010<<6, 10)
 			ba.appendUint16(0b1001<<12, 4)
+			addPadding(ba, codewordsCapacities[lvl][ver-1]*8)
+
+			sMarshaled = ba.getData()
+		}
+
+		if !bytes.Equal(data, sMarshaled) {
+			t.Errorf("Data isn't marshaled properly")
+			t.Log(sMarshaled)
+			t.Log(data)
+		}
+	}
+}
+
+func TestNewAlphanumericMarshaler(t *testing.T) {
+	var lvl ErrorCorrectionLevel = H
+	var ver QRVersion = 10
+
+	nm := NewAlphanumericMarshaler(lvl, ver)
+	if nm.lvl != lvl || ver != nm.ver {
+		t.Errorf("NewAlphanumericMarshaller's arguments are wrong")
+	}
+}
+
+func TestAlphanumericMarshaler_MarshalString(t *testing.T) {
+	{
+		s := "abcde!!!"
+		nm := NewAlphanumericMarshaler(L, 1)
+		if _, err := nm.MarshalString(s); !errors.Is(err, wrongFormatError) {
+			t.Errorf("%s is not alphanumeric, but error doesn't appear", s)
+		}
+	}
+
+	lvl := ErrorCorrectionLevel(L)
+	for _, ver := range []QRVersion{1, 45} {
+		s := "HELLO WORLD"
+		nm := NewAlphanumericMarshaler(lvl, ver)
+		data, err := nm.MarshalString(s)
+		if err != nil {
+			if ver <= 40 && ver >= 1 {
+				t.Errorf("Level is %d, but error arises", ver)
+				t.Log(err)
+			}
+			continue
+		}
+
+		var sMarshaled []byte
+		{
+			sSplitted := []string{"HE", "LL", "O ", "WO", "RL", "D"}
+			ba := newBitsetAppender()
+			ba.appendByte(0b0010<<4, 4)
+			_ = addCharacterCount(alphanumericBitCounts, ba, ver, len(s))
+			for _, pair := range sSplitted[:len(sSplitted)-1] {
+				num := getAlphanumericNumber(int32(pair[0]))*45 + getAlphanumericNumber(int32(pair[1]))
+				ba.appendUint16(uint16(num)<<5, 11)
+			}
+			ba.appendByte(uint8(getAlphanumericNumber(int32(sSplitted[len(sSplitted)-1][0])))<<2, 6)
 			addPadding(ba, codewordsCapacities[lvl][ver-1]*8)
 
 			sMarshaled = ba.getData()
