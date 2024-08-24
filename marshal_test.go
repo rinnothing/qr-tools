@@ -491,3 +491,51 @@ func TestByteMarshaler_MarshalString(t *testing.T) {
 		}
 	}
 }
+
+func TestNewQRMarshaler(t *testing.T) {
+	var lvl ErrorCorrectionLevel = H
+	var ver QRVersion = 10
+
+	nm := NewQRMarshaler(lvl, ver)
+	if nm.lvl != lvl || ver != nm.ver {
+		t.Errorf("NewQRMarshaller's arguments are wrong")
+	}
+}
+
+func TestQRMarshaler_MarshalString(t *testing.T) {
+	lvl := ErrorCorrectionLevel(L)
+	for _, ver := range []QRVersion{1, 45} {
+		qr := NewQRMarshaler(lvl, ver)
+
+		s := "12345"
+		nm := NewNumericMarshaler(lvl, ver)
+		dataNm, errNm := nm.MarshalString(s)
+		dataQr, errQr := qr.MarshalString(s)
+		if errNm == nil && !bytes.Equal(dataNm, dataQr) {
+			t.Errorf("QRMarshaller didn't use NumericMarshaller to encode %s", s)
+		} else if errNm != nil && errNm != errQr {
+			t.Errorf("Different errors arose: %s != %s", errNm, errQr)
+		}
+
+		s = "BABA 1234.++"
+		anm := NewAlphanumericMarshaler(lvl, ver)
+		dataAnm, errAnm := anm.MarshalString(s)
+		dataQr, errQr = qr.MarshalString(s)
+		if errAnm == nil && !bytes.Equal(dataAnm, dataQr) {
+			t.Errorf("QRMarshaller didn't use AlphanumericMarshaller to encode %s", s)
+		} else if errAnm != nil && errAnm != errQr {
+			t.Errorf("Different errors arose: %s != %s", errAnm, errQr)
+		}
+
+		s = "MoNeY!!!$$$"
+		bm := NewByteMarshaler(lvl, ver)
+		dataBm, errBm := bm.MarshalString(s)
+		dataQr, errQr = qr.MarshalString(s)
+		if errBm == nil && !bytes.Equal(dataBm, dataQr) {
+			t.Errorf("QRMarshaller didn't use ByteMarshaller to encode %s", s)
+		} else if errBm != nil && errBm != errQr {
+			t.Errorf("Different errors arose: %s != %s", errBm, errQr)
+		}
+
+	}
+}
