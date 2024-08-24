@@ -304,16 +304,22 @@ func (qm *QRMarshaler) MarshalString(str string) ([]byte, error) {
 	var mller Marshaler = NewNumericMarshaler(qm.lvl, qm.ver)
 	if data, err := mller.MarshalString(str); err == nil {
 		return data, nil
+	} else if !errors.Is(err, wrongFormatError) {
+		return nil, err
 	}
 
 	mller = NewAlphanumericMarshaler(qm.lvl, qm.ver)
 	if data, err := mller.MarshalString(str); err == nil {
 		return data, nil
+	} else if !errors.Is(err, wrongFormatError) {
+		return nil, err
 	}
 
 	mller = NewByteMarshaler(qm.lvl, qm.ver)
 	if data, err := mller.MarshalString(str); err == nil {
 		return data, nil
+	} else if !errors.Is(err, wrongFormatError) {
+		return nil, err
 	}
 
 	return nil, wrongFormatError
